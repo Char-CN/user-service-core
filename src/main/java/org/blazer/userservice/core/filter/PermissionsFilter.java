@@ -1,8 +1,9 @@
-package org.blazer.userservicecore.filter;
+package org.blazer.userservice.core.filter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -24,12 +25,12 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.blazer.userservice.core.model.SessionModel;
+import org.blazer.userservice.core.util.SessionUtil;
 
 public class PermissionsFilter implements Filter {
 
-	public static final String COOKIE_KEY = "MYSESSIONID";
-	public static final String COOKIE_PATH = "/";
-
+	public static final String SESSION_KEY = "US_SESSION_ID";
 	private String systemName = null;
 	private String serviceUrl = null;
 	private String innerServiceUrl = null;
@@ -63,7 +64,7 @@ public class PermissionsFilter implements Filter {
 		try {
 			StringBuilder requestUrl = new StringBuilder(innerServiceUrl);
 			requestUrl.append("/userservice/checkurl.do?");
-			requestUrl.append(COOKIE_KEY).append("=").append(sessionid);
+			requestUrl.append(SESSION_KEY).append("=").append(sessionid);
 			requestUrl.append("&").append("systemName").append("=").append(systemName);
 			requestUrl.append("&").append("url").append("=").append(url);
 			String content = executeGet(requestUrl.toString());
@@ -76,13 +77,13 @@ public class PermissionsFilter implements Filter {
 			// no login
 			if ("false".equals(contents[0])) {
 				System.err.println("请求checkurl.do返回：没有登录。");
-				System.err.println(serviceUrl + "/tologin.html?url=" + URLEncoder.encode(request.getRequestURL().toString(), "UTF-8"));
+//				System.err.println(serviceUrl + "/tologin.html?url=" + URLEncoder.encode(request.getRequestURL().toString(), "UTF-8"));
 				// response.sendRedirect(serviceUrl + "/tologin.html?url=" +
 				// URLEncoder.encode(request.getRequestURL().toString(),
 				// "UTF-8"));
 				// 这样跳转解决了，页面中间嵌套页面的问题。
-				System.out.println(request.getRequestedSessionId());
-				response.getWriter().println("<script>window.location.href = 'login.html?url=' + encodeURIComponent(location.href);</script>");
+				System.err.println("<script>window.location.href = '"+serviceUrl+"/tologin.html?url=' + encodeURIComponent(location.href);</script>");
+				response.getWriter().println("<script>window.location.href = '"+serviceUrl+"/tologin.html?url=' + encodeURIComponent(location.href);</script>");
 				return;
 			}
 			// no permissions
@@ -136,7 +137,7 @@ public class PermissionsFilter implements Filter {
 		return content;
 	}
 
-	private void delay(HttpServletResponse response, HttpServletRequest request, String newSession) {
+	private void delay(HttpServletResponse response, HttpServletRequest request, String newSession) throws UnsupportedEncodingException {
 		if ("".equals(newSession)) {
 			newSession = null;
 		}
@@ -146,30 +147,49 @@ public class PermissionsFilter implements Filter {
 			return;
 		}
 		System.out.println("delay ~ [" + domain + "] ~ new session : " + newSession);
-		Cookie cookie = new Cookie(COOKIE_KEY, newSession);
-		cookie.setPath(COOKIE_PATH);
-		cookie.setDomain(domain);
-		cookie.setMaxAge(cookieSeconds);
-		response.addCookie(cookie);
+		Cookie key = new Cookie(SESSION_KEY, newSession);
+		key.setPath("/");
+		key.setDomain(domain);
+		key.setMaxAge(cookieSeconds);
+		response.addCookie(key);
+		SessionModel model = SessionUtil.decode(newSession);
+		if (model.isValid()) {
+			Cookie userNameCn = new Cookie("US_USER_NAME_CN", URLEncoder.encode(model.getUserNameCn(), "UTF-8"));
+			userNameCn.setPath("/");
+			userNameCn.setDomain(domain);
+			userNameCn.setMaxAge(cookieSeconds);
+			response.addCookie(userNameCn);
+			Cookie userName = new Cookie("US_USER_NAME", URLEncoder.encode(model.getUserName(), "UTF-8"));
+			userName.setPath("/");
+			userName.setDomain(domain);
+			userName.setMaxAge(cookieSeconds);
+			response.addCookie(userName);
+		}
 	}
 
 	public static String getSessionId(HttpServletRequest request) {
-		String sessionValue = request.getParameter(COOKIE_KEY);
+		String sessionValue = request.getParameter(SESSION_KEY);
 		if (sessionValue != null) {
-			System.out.println(COOKIE_KEY + " 从 request 中取值 : " + sessionValue);
+			System.out.println(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
 			return sessionValue;
 		}
 		Cookie[] cookies = request.getCookies();
 		if (cookies != null) {
 			for (Cookie cookie : cookies) {
-				if (COOKIE_KEY.equals(cookie.getName())) {
-					System.out.println(COOKIE_KEY + " 从 cookie 中取值 : " + cookie.getValue());
+				if (SESSION_KEY.equals(cookie.getName())) {
+					System.out.println(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
 					return cookie.getValue();
 				}
 			}
 		}
-		System.out.println(COOKIE_KEY + " 从 cookie 中取值 : null");
+		System.out.println(SESSION_KEY + " 从 cookie  中取值 : null");
 		return null;
+	}
+
+	public static SessionModel getSessionModel(HttpServletRequest request) {
+		String sessionStr = getSessionId(request);
+		SessionModel sessionModel = SessionUtil.decode(sessionStr);
+		return sessionModel;
 	}
 
 	public void init(FilterConfig filterConfig) throws ServletException {
@@ -214,7 +234,7 @@ public class PermissionsFilter implements Filter {
 	public void destroy() {
 	}
 
-	public static String findOneStrByReg(final String str, final String reg) {
+	private static String findOneStrByReg(final String str, final String reg) {
 		try {
 			return findStrByReg(str, reg).get(0);
 		} catch (IndexOutOfBoundsException e) {
@@ -222,7 +242,7 @@ public class PermissionsFilter implements Filter {
 		return null;
 	}
 
-	public static List<String> findStrByReg(final String str, final String reg) {
+	private static List<String> findStrByReg(final String str, final String reg) {
 		List<String> list = new ArrayList<String>();
 		if (str == null || reg == null) {
 			return list;
