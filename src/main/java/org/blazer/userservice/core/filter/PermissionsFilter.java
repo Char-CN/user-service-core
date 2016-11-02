@@ -1,15 +1,9 @@
 package org.blazer.userservice.core.filter;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -21,24 +15,23 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
 import org.blazer.userservice.core.model.SessionModel;
+import org.blazer.userservice.core.util.HttpUtil;
 import org.blazer.userservice.core.util.SessionUtil;
+import org.blazer.userservice.core.util.StringUtil;
 
 public class PermissionsFilter implements Filter {
 
 	public static final String SESSION_KEY = "US_SESSION_ID";
-	private String systemName = null;
-	private String serviceUrl = null;
-	private String innerServiceUrl = null;
-	private String noPermissionsPage = null;
-	private HashSet<String> ignoreUrlsSet = null;
-	private Integer cookieSeconds = null;
-	private boolean onOff = false;
+	private static String systemName = null;
+	private static String serviceUrl = null;
+	private static String innerServiceUrl = null;
+	private static String noPermissionsPage = null;
+	private static HashSet<String> ignoreUrlsSet = null;
+	private static Integer cookieSeconds = null;
+	private static boolean onOff = false;
 
+	@Override
 	public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
 		if (!onOff) {
 			chain.doFilter(req, resp);
@@ -67,13 +60,13 @@ public class PermissionsFilter implements Filter {
 			requestUrl.append(SESSION_KEY).append("=").append(sessionid);
 			requestUrl.append("&").append("systemName").append("=").append(systemName);
 			requestUrl.append("&").append("url").append("=").append(url);
-			String content = executeGet(requestUrl.toString());
+			String content = HttpUtil.executeGet(requestUrl.toString());
 			System.out.println("请求checkurl.do返回结果：" + content);
 			String[] contents = content.split(",", 3);
 			if (contents.length != 3) {
 				System.err.println("请求checkurl.do返回：长度不对。");
 			}
-			delay(response, request, contents[2]);
+			delay(request, response, contents[2]);
 			// no login
 			if ("false".equals(contents[0])) {
 				System.err.println("请求checkurl.do返回：没有登录。");
@@ -106,92 +99,7 @@ public class PermissionsFilter implements Filter {
 		chain.doFilter(req, resp);
 	}
 
-	public String executeGet(String url) throws Exception {
-		BufferedReader in = null;
-		String content = null;
-		try {
-			CloseableHttpClient httpclient = HttpClients.createDefault();
-			HttpGet httpGet = new HttpGet(url);
-			CloseableHttpResponse response = httpclient.execute(httpGet);
-			in = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-			StringBuffer sb = new StringBuffer("");
-			String line = "";
-			String NL = System.getProperty("line.separator");
-			while ((line = in.readLine()) != null) {
-				if (sb.length() != 0) {
-					sb.append(NL);
-				}
-				sb.append(line);
-			}
-			in.close();
-			content = sb.toString();
-		} finally {
-			if (in != null) {
-				try {
-					in.close();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			}
-		}
-		return content;
-	}
-
-	private void delay(HttpServletResponse response, HttpServletRequest request, String newSession) throws UnsupportedEncodingException {
-		if ("".equals(newSession)) {
-			newSession = null;
-		}
-		String domain = findOneStrByReg(request.getRequestURL().toString(), "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*");
-		if (domain == null) {
-			System.out.println("delay error ~ domain is null ~ new session : " + newSession);
-			return;
-		}
-		System.out.println("delay ~ [" + domain + "] ~ new session : " + newSession);
-		Cookie key = new Cookie(SESSION_KEY, newSession);
-		key.setPath("/");
-		key.setDomain(domain);
-		key.setMaxAge(cookieSeconds);
-		response.addCookie(key);
-		SessionModel model = SessionUtil.decode(newSession);
-		if (model.isValid()) {
-			Cookie userNameCn = new Cookie("US_USER_NAME_CN", URLEncoder.encode(model.getUserNameCn(), "UTF-8"));
-			userNameCn.setPath("/");
-			userNameCn.setDomain(domain);
-			userNameCn.setMaxAge(cookieSeconds);
-			response.addCookie(userNameCn);
-			Cookie userName = new Cookie("US_USER_NAME", URLEncoder.encode(model.getUserName(), "UTF-8"));
-			userName.setPath("/");
-			userName.setDomain(domain);
-			userName.setMaxAge(cookieSeconds);
-			response.addCookie(userName);
-		}
-	}
-
-	public static String getSessionId(HttpServletRequest request) {
-		String sessionValue = request.getParameter(SESSION_KEY);
-		if (sessionValue != null) {
-			System.out.println(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
-			return sessionValue;
-		}
-		Cookie[] cookies = request.getCookies();
-		if (cookies != null) {
-			for (Cookie cookie : cookies) {
-				if (SESSION_KEY.equals(cookie.getName())) {
-					System.out.println(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
-					return cookie.getValue();
-				}
-			}
-		}
-		System.out.println(SESSION_KEY + " 从 cookie  中取值 : null");
-		return null;
-	}
-
-	public static SessionModel getSessionModel(HttpServletRequest request) {
-		String sessionStr = getSessionId(request);
-		SessionModel sessionModel = SessionUtil.decode(sessionStr);
-		return sessionModel;
-	}
-
+	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		systemName = filterConfig.getInitParameter("systemName");
 		serviceUrl = filterConfig.getInitParameter("serviceUrl");
@@ -231,30 +139,67 @@ public class PermissionsFilter implements Filter {
 		System.out.println("初始化权限PermissionsFilter成功，源于 : " + this.getClass().getPackage());
 	}
 
+	@Override
 	public void destroy() {
 	}
 
-	private static String findOneStrByReg(final String str, final String reg) {
-		try {
-			return findStrByReg(str, reg).get(0);
-		} catch (IndexOutOfBoundsException e) {
+	public static void delay(HttpServletRequest request, HttpServletResponse response, String newSession) throws UnsupportedEncodingException {
+		if ("".equals(newSession)) {
+			newSession = null;
 		}
+		String domain = getDomain(request);
+		if (domain == null) {
+			System.out.println("delay error ~ domain is null ~ new session : " + newSession);
+			return;
+		}
+		System.out.println("delay ~ [" + domain + "] ~ new session : " + newSession);
+		Cookie key = new Cookie(SESSION_KEY, newSession);
+		key.setPath("/");
+		key.setDomain(domain);
+		key.setMaxAge(cookieSeconds);
+		response.addCookie(key);
+		SessionModel model = SessionUtil.decode(newSession);
+		if (model.isValid()) {
+			Cookie userNameCn = new Cookie("US_USER_NAME_CN", URLEncoder.encode(model.getUserNameCn(), "UTF-8"));
+			userNameCn.setPath("/");
+			userNameCn.setDomain(domain);
+			userNameCn.setMaxAge(cookieSeconds);
+			response.addCookie(userNameCn);
+			Cookie userName = new Cookie("US_USER_NAME", URLEncoder.encode(model.getUserName(), "UTF-8"));
+			userName.setPath("/");
+			userName.setDomain(domain);
+			userName.setMaxAge(cookieSeconds);
+			response.addCookie(userName);
+		}
+	}
+
+	public static String getDomain(HttpServletRequest request) {
+		return StringUtil.findOneStrByReg(request.getRequestURL().toString(), "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*");
+	}
+
+	public static String getSessionId(HttpServletRequest request) {
+		String sessionValue = request.getParameter(SESSION_KEY);
+		if (sessionValue != null) {
+			System.out.println(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
+			return sessionValue;
+		}
+		Cookie[] cookies = request.getCookies();
+		if (cookies != null) {
+			for (Cookie cookie : cookies) {
+				if (SESSION_KEY.equals(cookie.getName())) {
+					System.out.println(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
+					return cookie.getValue();
+				}
+			}
+		}
+		System.out.println(SESSION_KEY + " 从 cookie  中取值 : null");
 		return null;
 	}
 
-	private static List<String> findStrByReg(final String str, final String reg) {
-		List<String> list = new ArrayList<String>();
-		if (str == null || reg == null) {
-			return list;
-		}
-		Pattern p = Pattern.compile(reg);
-		Matcher m = p.matcher(str);
-		while (m.find()) {
-			for (int i = 1; i <= m.groupCount(); i++) {
-				list.add(m.group(i));
-			}
-		}
-		return list;
+	public static SessionModel getSessionModel(HttpServletRequest request) {
+		String sessionStr = getSessionId(request);
+		SessionModel sessionModel = SessionUtil.decode(sessionStr);
+		return sessionModel;
 	}
 
 }
