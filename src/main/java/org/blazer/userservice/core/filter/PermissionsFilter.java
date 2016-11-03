@@ -45,6 +45,7 @@ public class PermissionsFilter implements Filter {
 		}
 		System.out.println("action url : " + url);
 		String sessionid = getSessionId(request);
+		// 访问userservice服务不需要经过权限认证
 		if (url.startsWith("/userservice/")) {
 			chain.doFilter(req, resp);
 			return;
