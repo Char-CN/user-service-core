@@ -1,6 +1,10 @@
 package org.blazer.userservice.core.filter;
 
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.HashSet;
@@ -20,9 +24,21 @@ import org.blazer.userservice.core.util.HttpUtil;
 import org.blazer.userservice.core.util.SessionUtil;
 import org.blazer.userservice.core.util.StringUtil;
 
+/**
+ * 需要在web.xml中配置如下字段信息:onOff、systemName、serviceUrl、innerServiceUrl、
+ * noPermissionsPage、cookieSeconds、ignoreUrls
+ * 
+ * @author hyy
+ *
+ */
 public class PermissionsFilter implements Filter {
 
 	public static final String SESSION_KEY = "US_SESSION_ID";
+	public static final String NAME_KEY = "US_USER_NAME";
+	public static final String NAME_CN_KEY = "US_USER_NAME_CN";
+	public static final String DOMAIN_REG = "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*";
+	public static final String TEMPLATE = "/js/userservice_template.js";
+	public static final String JS = "/js/userservice.js";
 	private static String systemName = null;
 	private static String serviceUrl = null;
 	private static String innerServiceUrl = null;
@@ -71,13 +87,16 @@ public class PermissionsFilter implements Filter {
 			// no login
 			if ("false".equals(contents[0])) {
 				System.err.println("请求checkurl.do返回：没有登录。");
-//				System.err.println(serviceUrl + "/tologin.html?url=" + URLEncoder.encode(request.getRequestURL().toString(), "UTF-8"));
+				// System.err.println(serviceUrl + "/tologin.html?url=" +
+				// URLEncoder.encode(request.getRequestURL().toString(),
+				// "UTF-8"));
 				// response.sendRedirect(serviceUrl + "/tologin.html?url=" +
 				// URLEncoder.encode(request.getRequestURL().toString(),
 				// "UTF-8"));
 				// 这样跳转解决了，页面中间嵌套页面的问题。
-				System.err.println("<script>window.location.href = '"+serviceUrl+"/tologin.html?url=' + encodeURIComponent(location.href);</script>");
-				response.getWriter().println("<script>window.location.href = '"+serviceUrl+"/tologin.html?url=' + encodeURIComponent(location.href);</script>");
+				System.err.println("<script>window.location.href = '" + serviceUrl + "/tologin.html?url=' + encodeURIComponent(location.href);</script>");
+				response.getWriter()
+						.println("<script>window.location.href = '" + serviceUrl + "/tologin.html?url=' + encodeURIComponent(location.href);</script>");
 				return;
 			}
 			// no permissions
@@ -129,15 +148,60 @@ public class PermissionsFilter implements Filter {
 				ignoreUrlsSet.add(url);
 			}
 		}
-		System.out.println("init filter systemName : " + systemName);
-		System.out.println("init filter serviceUrl : " + serviceUrl);
-		System.out.println("init filter innerServiceUrl : " + innerServiceUrl);
+		System.out.println("init filter on-off            : " + onOff);
+		System.out.println("init filter systemName        : " + systemName);
+		System.out.println("init filter serviceUrl        : " + serviceUrl);
+		System.out.println("init filter innerServiceUrl   : " + innerServiceUrl);
 		System.out.println("init filter noPermissionsPage : " + noPermissionsPage);
-		System.out.println("init filter cookieSeconds : " + cookieSeconds);
-		System.out.println("init filter on-off : " + onOff);
-		System.out.println("init filter ignoreUrls : " + ignoreUrls);
-		System.out.println("init filter ignoreUrlsMap : " + ignoreUrlsSet);
-		System.out.println("初始化权限PermissionsFilter成功，源于 : " + this.getClass().getPackage());
+		System.out.println("init filter cookieSeconds     : " + cookieSeconds);
+		System.out.println("init filter ignoreUrls        : " + ignoreUrls);
+		System.out.println("init filter ignoreUrlsMap     : " + ignoreUrlsSet);
+		String filePath = null;
+		try {
+			filePath = filterConfig.getServletContext().getResource("/").getPath();
+			filePath = filePath.substring(0, filePath.length() - 1);
+			if (filterConfig.getServletContext().getResource(TEMPLATE) == null) {
+				System.out.println("init js not found template    : " + filePath + TEMPLATE);
+			} else {
+				System.out.println("init js template path         : " + filePath + TEMPLATE);
+				System.out.println("init new js file path         : " + filePath + JS);
+				BufferedReader br = null;
+				FileWriter fw = null;
+				try {
+					br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath + TEMPLATE), "UTF-8"));
+					fw = new FileWriter(filePath + JS);
+					for (String line = br.readLine(); line != null; line = br.readLine()) {
+						// 替换js文件模板内容变量
+						line = line.replace("${serviceUrl}", serviceUrl);
+						line = line.replace("${SESSION_KEY}", SESSION_KEY);
+						line = line.replace("${NAME_KEY}", NAME_KEY);
+						line = line.replace("${NAME_CN_KEY}", NAME_CN_KEY);
+						line = line.replace("${DOMAIN_REG}", DOMAIN_REG);
+						fw.append(line + "\n");
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				} finally {
+					if (br != null) {
+						try {
+							br.close();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+					if (fw != null) {
+						try {
+							fw.close();
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+					}
+				}
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		System.out.println("init filter success by source : " + this.getClass().getPackage());
 	}
 
 	@Override
@@ -161,12 +225,12 @@ public class PermissionsFilter implements Filter {
 		response.addCookie(key);
 		SessionModel model = SessionUtil.decode(newSession);
 		if (model.isValid()) {
-			Cookie userNameCn = new Cookie("US_USER_NAME_CN", URLEncoder.encode(model.getUserNameCn(), "UTF-8"));
+			Cookie userNameCn = new Cookie(NAME_CN_KEY, URLEncoder.encode(model.getUserNameCn(), "UTF-8"));
 			userNameCn.setPath("/");
 			userNameCn.setDomain(domain);
 			userNameCn.setMaxAge(cookieSeconds);
 			response.addCookie(userNameCn);
-			Cookie userName = new Cookie("US_USER_NAME", URLEncoder.encode(model.getUserName(), "UTF-8"));
+			Cookie userName = new Cookie(NAME_KEY, URLEncoder.encode(model.getUserName(), "UTF-8"));
 			userName.setPath("/");
 			userName.setDomain(domain);
 			userName.setMaxAge(cookieSeconds);
@@ -175,7 +239,7 @@ public class PermissionsFilter implements Filter {
 	}
 
 	public static String getDomain(HttpServletRequest request) {
-		return StringUtil.findOneStrByReg(request.getRequestURL().toString(), "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*");
+		return StringUtil.findOneStrByReg(request.getRequestURL().toString(), DOMAIN_REG);
 	}
 
 	public static String getSessionId(HttpServletRequest request) {
