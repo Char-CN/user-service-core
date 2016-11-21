@@ -4,17 +4,47 @@ import org.apache.commons.lang3.StringUtils;
 import org.blazer.userservice.core.model.LoginType;
 import org.blazer.userservice.core.model.SessionModel;
 
+/**
+ * SessionModel加密与解密工具类
+ * 
+ * @author hyy
+ *
+ */
 public class SessionUtil {
 
+	/**
+	 * 分隔符
+	 */
 	public static final String SEPARATOR = ",";
-	// ExpireTime,UserId,UserName,UserNameCn,Email,PhoneNumber,LoginType
+
+	/**
+	 * 每位的意义：ExpireTime,UserId,UserName,UserNameCn,Email,PhoneNumber,LoginType
+	 */
 	public static final String FORMAT = "%s" + SEPARATOR + "%s" + SEPARATOR + "%s" + SEPARATOR + "%s" + SEPARATOR + "%s" + SEPARATOR + "%s" + SEPARATOR + "%s";
 
+	/**
+	 * 加密session
+	 * 
+	 * @param expire
+	 * @param id
+	 * @param userName
+	 * @param userNameCn
+	 * @param email
+	 * @param phoneNumber
+	 * @param loginType
+	 * @return
+	 */
 	public static String encode(Long expire, Integer id, String userName, String userNameCn, String email, String phoneNumber, Integer loginType) {
 		String sessionId = DesUtil.encrypt(String.format(FORMAT, expire, id, userName, userNameCn, email, phoneNumber, loginType));
 		return sessionId;
 	}
 
+	/**
+	 * 解密session
+	 * 
+	 * @param sessionStr
+	 * @return
+	 */
 	public static SessionModel decode(String sessionStr) {
 		sessionStr = DesUtil.decrypt(sessionStr);
 		SessionModel bean = new SessionModel();

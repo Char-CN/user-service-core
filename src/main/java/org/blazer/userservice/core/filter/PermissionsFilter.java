@@ -78,21 +78,16 @@ public class PermissionsFilter implements Filter {
 			requestUrl.append("&").append("systemName").append("=").append(systemName);
 			requestUrl.append("&").append("url").append("=").append(url);
 			String content = HttpUtil.executeGet(requestUrl.toString());
-			System.out.println("请求checkurl.do返回结果：" + content);
+			System.out.println("验证Url：" + requestUrl);
+			System.out.println("验证结果：" + content);
 			String[] contents = content.split(",", 3);
 			if (contents.length != 3) {
-				System.err.println("请求checkurl.do返回：长度不对。");
+				System.err.println("验证提示：长度不对。");
 			}
 			delay(request, response, contents[2]);
 			// no login
 			if ("false".equals(contents[0])) {
-				System.err.println("请求checkurl.do返回：没有登录。");
-				// System.err.println(serviceUrl + "/tologin.html?url=" +
-				// URLEncoder.encode(request.getRequestURL().toString(),
-				// "UTF-8"));
-				// response.sendRedirect(serviceUrl + "/tologin.html?url=" +
-				// URLEncoder.encode(request.getRequestURL().toString(),
-				// "UTF-8"));
+				System.err.println("验证提示：没有登录。");
 				// 这样跳转解决了，页面中间嵌套页面的问题。
 				System.err.println("<script>window.location.href = '" + serviceUrl + "/tologin.html?url=' + encodeURIComponent(location.href);</script>");
 				response.getWriter()
@@ -101,7 +96,7 @@ public class PermissionsFilter implements Filter {
 			}
 			// no permissions
 			if ("false".equals(contents[1])) {
-				System.err.println("请求checkurl.do返回：没有权限。");
+				System.err.println("验证提示：没有权限。");
 				if (noPermissionsPage == null) {
 					System.err.println("noPermissionsPage没有配置。");
 					response.sendRedirect(serviceUrl + "/nopermissions.html");

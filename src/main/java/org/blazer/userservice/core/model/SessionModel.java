@@ -1,5 +1,11 @@
 package org.blazer.userservice.core.model;
 
+/**
+ * Session模型，由SessionUtil工具类提供该类的操作
+ * 
+ * @author hyy
+ *
+ */
 public class SessionModel {
 
 	private LoginType loginType;
