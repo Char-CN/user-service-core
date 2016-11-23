@@ -37,13 +37,13 @@ public class PermissionsFilter implements Filter {
 	public static final String NAME_KEY = "US_USER_NAME";
 	public static final String NAME_CN_KEY = "US_USER_NAME_CN";
 	public static final String DOMAIN_REG = "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*";
-	public static final String TEMPLATE = "/js/userservice_template.js";
-	public static final String JS = "/js/userservice.js";
 	private static String systemName = null;
 	private static String serviceUrl = null;
 	private static String innerServiceUrl = null;
 	private static String noPermissionsPage = null;
+	private static String templateJs = null;
 	private static HashSet<String> ignoreUrlsSet = null;
+	private static HashSet<String> ignoreUrlsPrefixSet = null;
 	private static Integer cookieSeconds = null;
 	private static boolean onOff = false;
 
@@ -62,9 +62,11 @@ public class PermissionsFilter implements Filter {
 		System.out.println("action url : " + url);
 		String sessionid = getSessionId(request);
 		// 访问userservice服务不需要经过权限认证
-		if (url.startsWith("/userservice/")) {
-			chain.doFilter(req, resp);
-			return;
+		for (String perfix : ignoreUrlsPrefixSet) {
+			if (url.startsWith(perfix)) {
+				chain.doFilter(req, resp);
+				return;
+			}
 		}
 		// web.xml配置的过滤页面以及强制过滤/login.html和pwd.html
 		if (ignoreUrlsSet.contains(url)) {
@@ -82,16 +84,23 @@ public class PermissionsFilter implements Filter {
 			System.out.println("验证结果：" + content);
 			String[] contents = content.split(",", 3);
 			if (contents.length != 3) {
-				System.err.println("验证提示：长度不对。");
+				System.err.println("验证提示：服务器返回结果的长度不对。");
 			}
 			delay(request, response, contents[2]);
 			// no login
 			if ("false".equals(contents[0])) {
 				System.err.println("验证提示：没有登录。");
 				// 这样跳转解决了，页面中间嵌套页面的问题。
-				System.err.println("<script>window.location.href = '" + serviceUrl + "/tologin.html?url=' + encodeURIComponent(location.href);</script>");
-				response.getWriter()
-						.println("<script>window.location.href = '" + serviceUrl + "/tologin.html?url=' + encodeURIComponent(location.href);</script>");
+				// String script = "<script>window.location.href = '" +
+				// serviceUrl + "/tologin.html?url=' +
+				// encodeURIComponent(location.href);</script>";
+				String script = "<script>";
+				script += "alert('您的身份已失效，请重新登录!');";
+				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
+				script += "</script>";
+				System.err.println(script);
+				response.setContentType("text/html;charset=utf-8");
+				response.getWriter().println(script);
 				return;
 			}
 			// no permissions
@@ -123,6 +132,7 @@ public class PermissionsFilter implements Filter {
 			innerServiceUrl = serviceUrl;
 		}
 		noPermissionsPage = filterConfig.getInitParameter("noPermissionsPage");
+		templateJs = filterConfig.getInitParameter("templateJs");
 		onOff = "1".equals(filterConfig.getInitParameter("on-off"));
 		try {
 			cookieSeconds = Integer.parseInt(filterConfig.getInitParameter("cookieSeconds"));
@@ -131,6 +141,7 @@ public class PermissionsFilter implements Filter {
 		}
 		// 过滤的URL
 		ignoreUrlsSet = new HashSet<String>();
+		ignoreUrlsPrefixSet = new HashSet<String>();
 		// 强制过滤/login.html和/pwd.html
 		ignoreUrlsSet.add("/tologin.html");
 		ignoreUrlsSet.add("/login.html");
@@ -140,31 +151,61 @@ public class PermissionsFilter implements Filter {
 			String[] urls = ignoreUrls.split(",");
 			// 过滤url
 			for (String url : urls) {
-				ignoreUrlsSet.add(url);
+				// 格式：/userservice/*
+				// 如URL：/userservice/checkurl.do
+				// 即访问userservice服务不需要经过权限认证
+				if (url.endsWith("*")) {
+					ignoreUrlsPrefixSet.add(url.replaceAll("[*]", ""));
+				} else {
+					ignoreUrlsSet.add(url);
+				}
 			}
 		}
-		System.out.println("init filter on-off            : " + onOff);
-		System.out.println("init filter systemName        : " + systemName);
-		System.out.println("init filter serviceUrl        : " + serviceUrl);
-		System.out.println("init filter innerServiceUrl   : " + innerServiceUrl);
-		System.out.println("init filter noPermissionsPage : " + noPermissionsPage);
-		System.out.println("init filter cookieSeconds     : " + cookieSeconds);
-		System.out.println("init filter ignoreUrls        : " + ignoreUrls);
-		System.out.println("init filter ignoreUrlsMap     : " + ignoreUrlsSet);
+		System.out.println("初始化配置：on-off              : " + onOff);
+		System.out.println("初始化配置：systemName          : " + systemName);
+		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
+		System.out.println("初始化配置：innerServiceUrl     : " + innerServiceUrl);
+		System.out.println("初始化配置：noPermissionsPage   : " + noPermissionsPage);
+		System.out.println("初始化配置：cookieSeconds       : " + cookieSeconds);
+		System.out.println("初始化配置：ignoreUrls          : " + ignoreUrls);
+		System.out.println("初始化配置：ignoreUrlsSet       : " + ignoreUrlsSet);
+		System.out.println("初始化配置：ignoreUrlsPrefixSet : " + ignoreUrlsPrefixSet);
+		if (ignoreUrlsPrefixSet.size() > 10) {
+			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于10个，将会严重影响系统性能。");
+		} else if (ignoreUrlsPrefixSet.size() > 5) {
+			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于5个，将会影响系统性能。");
+		}
+		if (templateJs != null && !"".equals(templateJs)) {
+			for (String keyValue : templateJs.split(",")) {
+				String[] kv = keyValue.split(":");
+				if (kv.length != 2) {
+					System.err.println("过滤错误JS生成配置：" + keyValue);
+					continue;
+				}
+				// 根据模板生成文件
+				newTemplate(filterConfig, kv[0], kv[1]);
+			}
+		} else {
+			System.out.println("初始化配置：没有需要生成的JS模板");
+		}
+		System.out.println("初始化配置：success by source   : " + this.getClass().getPackage());
+	}
+
+	private void newTemplate(FilterConfig filterConfig, String template, String js) {
 		String filePath = null;
 		try {
 			filePath = filterConfig.getServletContext().getResource("/").getPath();
 			filePath = filePath.substring(0, filePath.length() - 1);
-			if (filterConfig.getServletContext().getResource(TEMPLATE) == null) {
-				System.out.println("init js not found template    : " + filePath + TEMPLATE);
+			if (filterConfig.getServletContext().getResource(template) == null) {
+				System.out.println("初始化配置：找不到js模板          : " + filePath + template);
 			} else {
-				System.out.println("init js template path         : " + filePath + TEMPLATE);
-				System.out.println("init new js file path         : " + filePath + JS);
+				System.out.println("初始化配置：js模板路径            : " + filePath + template);
+				System.out.println("初始化配置：新生成js文件          : " + filePath + js);
 				BufferedReader br = null;
 				FileWriter fw = null;
 				try {
-					br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath + TEMPLATE), "UTF-8"));
-					fw = new FileWriter(filePath + JS);
+					br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath + template), "UTF-8"));
+					fw = new FileWriter(filePath + js);
 					for (String line = br.readLine(); line != null; line = br.readLine()) {
 						// 替换js文件模板内容变量
 						line = line.replace("${serviceUrl}", serviceUrl);
@@ -196,7 +237,6 @@ public class PermissionsFilter implements Filter {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		System.out.println("init filter success by source : " + this.getClass().getPackage());
 	}
 
 	@Override
