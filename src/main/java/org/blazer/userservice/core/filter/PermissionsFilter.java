@@ -145,9 +145,9 @@ public class PermissionsFilter implements Filter {
 		ignoreUrlsSet = new HashSet<String>();
 		ignoreUrlsPrefixSet = new HashSet<String>();
 		// 强制过滤/login.html和/pwd.html
-		ignoreUrlsSet.add("/tologin.html");
-		ignoreUrlsSet.add("/login.html");
-		ignoreUrlsSet.add("/pwd.html");
+//		ignoreUrlsSet.add("/tologin.html");
+//		ignoreUrlsSet.add("/login.html");
+//		ignoreUrlsSet.add("/pwd.html");
 		String ignoreUrls = filterConfig.getInitParameter("ignoreUrls");
 		if (ignoreUrls != null && !"".equals(ignoreUrls)) {
 			String[] urls = ignoreUrls.split(",");
@@ -303,6 +303,30 @@ public class PermissionsFilter implements Filter {
 		String sessionStr = getSessionId(request);
 		SessionModel sessionModel = SessionUtil.decode(sessionStr);
 		return sessionModel;
+	}
+
+	public static String getSystemName() {
+		return systemName;
+	}
+
+	public static String getServiceUrl() {
+		return serviceUrl;
+	}
+
+	public static String getInnerServiceUrl() {
+		return innerServiceUrl;
+	}
+
+	public static String getNoPermissionsPage() {
+		return noPermissionsPage;
+	}
+
+	public static Integer getCookieSeconds() {
+		return cookieSeconds;
+	}
+
+	public static boolean isOnOff() {
+		return onOff;
 	}
 
 }
