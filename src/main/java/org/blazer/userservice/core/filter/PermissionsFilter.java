@@ -204,11 +204,9 @@ public class PermissionsFilter implements Filter {
 				System.out.println("初始化配置：js模板路径            : " + filePath + template);
 				System.out.println("初始化配置：新生成js文件          : " + filePath + js);
 				BufferedReader br = null;
-//				FileWriter fw = null;
 				OutputStreamWriter osw = null;
 				try {
 					br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath + template), "UTF-8"));
-//					fw = new FileWriter(filePath + js);
 					osw = new OutputStreamWriter(new FileOutputStream(new File(filePath + js)),"utf-8");
 					for (String line = br.readLine(); line != null; line = br.readLine()) {
 						// 替换js文件模板内容变量
@@ -218,7 +216,6 @@ public class PermissionsFilter implements Filter {
 						line = line.replace("${NAME_CN_KEY}", NAME_CN_KEY);
 						line = line.replace("${DOMAIN_REG}", DOMAIN_REG);
 						osw.append(line + "\n");
-//						fw.append(line + "\n");
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
