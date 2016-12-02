@@ -108,11 +108,6 @@ public class PermissionsFilter implements Filter {
 			// no permissions
 			if ("false".equals(contents[1])) {
 				System.err.println("验证提示：没有权限。");
-				if (noPermissionsPage == null) {
-					System.err.println("noPermissionsPage没有配置。");
-					response.sendRedirect(serviceUrl + "/nopermissions.html");
-					return;
-				}
 				response.sendRedirect(noPermissionsPage);
 				return;
 			}
@@ -134,6 +129,14 @@ public class PermissionsFilter implements Filter {
 			innerServiceUrl = serviceUrl;
 		}
 		noPermissionsPage = filterConfig.getInitParameter("noPermissionsPage");
+		try {
+			if (noPermissionsPage == null || filterConfig.getServletContext().getResource("/" + noPermissionsPage) == null) {
+				System.err.println("noPermissionsPage没有配置或找不到该文件。");
+				noPermissionsPage = serviceUrl + "/nopermissions.html";
+			}
+		} catch (Exception e) {
+			System.err.println("初始化noPermissionsPage出错。" + e.getMessage());
+		}
 		templateJs = filterConfig.getInitParameter("templateJs");
 		onOff = "1".equals(filterConfig.getInitParameter("on-off"));
 		try {
@@ -145,9 +148,9 @@ public class PermissionsFilter implements Filter {
 		ignoreUrlsSet = new HashSet<String>();
 		ignoreUrlsPrefixSet = new HashSet<String>();
 		// 强制过滤/login.html和/pwd.html
-//		ignoreUrlsSet.add("/tologin.html");
-//		ignoreUrlsSet.add("/login.html");
-//		ignoreUrlsSet.add("/pwd.html");
+		// ignoreUrlsSet.add("/tologin.html");
+		// ignoreUrlsSet.add("/login.html");
+		// ignoreUrlsSet.add("/pwd.html");
 		String ignoreUrls = filterConfig.getInitParameter("ignoreUrls");
 		if (ignoreUrls != null && !"".equals(ignoreUrls)) {
 			String[] urls = ignoreUrls.split(",");
@@ -207,7 +210,7 @@ public class PermissionsFilter implements Filter {
 				OutputStreamWriter osw = null;
 				try {
 					br = new BufferedReader(new InputStreamReader(new FileInputStream(filePath + template), "UTF-8"));
-					osw = new OutputStreamWriter(new FileOutputStream(new File(filePath + js)),"utf-8");
+					osw = new OutputStreamWriter(new FileOutputStream(new File(filePath + js)), "utf-8");
 					for (String line = br.readLine(); line != null; line = br.readLine()) {
 						// 替换js文件模板内容变量
 						line = line.replace("${serviceUrl}", serviceUrl);
@@ -229,7 +232,7 @@ public class PermissionsFilter implements Filter {
 					}
 					if (osw != null) {
 						try {
-//							fw.close();
+							// fw.close();
 							osw.close();
 						} catch (Exception e) {
 							e.printStackTrace();
