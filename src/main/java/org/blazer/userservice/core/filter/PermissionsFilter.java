@@ -158,7 +158,7 @@ public class PermissionsFilter implements Filter {
 			response.sendRedirect(noPermissionsPage);
 			return CheckUrlStatus.FailToNoPermissions;
 		}
-		return CheckUrlStatus.SUCCESS;
+		return CheckUrlStatus.Success;
 	}
 
 	@Override
