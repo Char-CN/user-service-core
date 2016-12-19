@@ -133,7 +133,7 @@ public class PermissionsFilter implements Filter {
 		chain.doFilter(req, resp);
 	}
 
-	public CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws Exception {
+	public static CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws Exception {
 		String sessionid = getSessionId(request);
 		String requestUrl = String.format(doCheckUrl, sessionid, url);
 		String content = HttpUtil.executeGet(requestUrl.toString());
