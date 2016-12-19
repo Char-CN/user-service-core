@@ -126,8 +126,16 @@ public class PermissionsFilter implements Filter {
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoLogin) {
 				System.err.println("验证提示：没有登录。");
+				// 这样跳转解决了，页面中间嵌套页面的问题。
+				String script = "<script>";
+				script += "alert('您的身份已失效，请重新登录!');";
+				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
+				script += "</script>";
+				response.setContentType("text/html;charset=utf-8");
+				response.getWriter().println(script);
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoPermissions) {
+				response.sendRedirect(noPermissionsPage);
 				System.err.println("验证提示：没有权限。");
 				return;
 			}
@@ -149,20 +157,10 @@ public class PermissionsFilter implements Filter {
 			return CheckUrlStatus.FailToRstLengthError;
 		}
 		delay(request, response, contents[2]);
-		// no login
 		if ("false".equals(contents[0])) {
-			// 这样跳转解决了，页面中间嵌套页面的问题。
-			String script = "<script>";
-			script += "alert('您的身份已失效，请重新登录!');";
-			script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
-			script += "</script>";
-			response.setContentType("text/html;charset=utf-8");
-			response.getWriter().println(script);
 			return CheckUrlStatus.FailToNoLogin;
 		}
-		// no permissions
 		if ("false".equals(contents[1])) {
-			response.sendRedirect(noPermissionsPage);
 			return CheckUrlStatus.FailToNoPermissions;
 		}
 		return CheckUrlStatus.Success;
