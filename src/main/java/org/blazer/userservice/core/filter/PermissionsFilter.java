@@ -48,6 +48,7 @@ public class PermissionsFilter implements Filter {
 	private static HashSet<String> ignoreUrlsPrefixSet = null;
 	private static Integer cookieSeconds = null;
 	private static boolean onOff = false;
+	private static String doCheckUrl = null;
 
 	@Override
 	public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
@@ -62,7 +63,6 @@ public class PermissionsFilter implements Filter {
 			url = url.replaceFirst(request.getContextPath(), "");
 		}
 		System.out.println("action url : " + url);
-		String sessionid = getSessionId(request);
 		// 访问userservice服务不需要经过权限认证
 		for (String perfix : ignoreUrlsPrefixSet) {
 			if (url.startsWith(perfix)) {
@@ -76,39 +76,52 @@ public class PermissionsFilter implements Filter {
 			return;
 		}
 		try {
-			StringBuilder requestUrl = new StringBuilder(innerServiceUrl);
-			requestUrl.append("/userservice/checkurl.do?");
-			requestUrl.append(SESSION_KEY).append("=").append(sessionid);
-			requestUrl.append("&").append("systemName").append("=").append(systemName);
-			requestUrl.append("&").append("url").append("=").append(url);
-			String content = HttpUtil.executeGet(requestUrl.toString());
-			System.out.println("验证Url：" + requestUrl);
-			System.out.println("验证结果：" + content);
-			String[] contents = content.split(",", 3);
-			if (contents.length != 3) {
+			// StringBuilder requestUrl = new StringBuilder(innerServiceUrl);
+			// requestUrl.append("/userservice/checkurl.do?");
+			// requestUrl.append(SESSION_KEY).append("=").append(sessionid);
+			// requestUrl.append("&").append("systemName").append("=").append(systemName);
+			// requestUrl.append("&").append("url").append("=").append(url);
+//			String sessionid = getSessionId(request);
+//			String requestUrl = String.format(doCheckUrl, sessionid, url);
+//			String content = HttpUtil.executeGet(requestUrl.toString());
+//			System.out.println("验证Url：" + requestUrl);
+//			System.out.println("验证结果：" + content);
+//			String[] contents = content.split(",", 3);
+//			if (contents.length != 3) {
+//				System.err.println("验证提示：服务器返回结果的长度不对。");
+//			}
+//			delay(request, response, contents[2]);
+//			// no login
+//			if ("false".equals(contents[0])) {
+//				System.err.println("验证提示：没有登录。");
+//				// 这样跳转解决了，页面中间嵌套页面的问题。
+//				// String script = "<script>window.location.href = '" +
+//				// serviceUrl + "/tologin.html?url=' +
+//				// encodeURIComponent(location.href);</script>";
+//				String script = "<script>";
+//				script += "alert('您的身份已失效，请重新登录!');";
+//				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
+//				script += "</script>";
+//				System.err.println(script);
+//				response.setContentType("text/html;charset=utf-8");
+//				response.getWriter().println(script);
+//				return;
+//			}
+//			// no permissions
+//			if ("false".equals(contents[1])) {
+//				System.err.println("验证提示：没有权限。");
+//				response.sendRedirect(noPermissionsPage);
+//				return;
+//			}
+			CheckUrlStatus cus = checkUrl(request, response, url);
+			if (cus == CheckUrlStatus.FailToRstLengthError) {
 				System.err.println("验证提示：服务器返回结果的长度不对。");
-			}
-			delay(request, response, contents[2]);
-			// no login
-			if ("false".equals(contents[0])) {
-				System.err.println("验证提示：没有登录。");
-				// 这样跳转解决了，页面中间嵌套页面的问题。
-				// String script = "<script>window.location.href = '" +
-				// serviceUrl + "/tologin.html?url=' +
-				// encodeURIComponent(location.href);</script>";
-				String script = "<script>";
-				script += "alert('您的身份已失效，请重新登录!');";
-				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
-				script += "</script>";
-				System.err.println(script);
-				response.setContentType("text/html;charset=utf-8");
-				response.getWriter().println(script);
 				return;
-			}
-			// no permissions
-			if ("false".equals(contents[1])) {
+			} else if (cus == CheckUrlStatus.FailToNoLogin) {
+				System.err.println("验证提示：没有登录。");
+				return;
+			} else if (cus == CheckUrlStatus.FailToNoPermissions) {
 				System.err.println("验证提示：没有权限。");
-				response.sendRedirect(noPermissionsPage);
 				return;
 			}
 		} catch (Exception e) {
@@ -118,6 +131,34 @@ public class PermissionsFilter implements Filter {
 			return;
 		}
 		chain.doFilter(req, resp);
+	}
+
+	public CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws Exception {
+		String sessionid = getSessionId(request);
+		String requestUrl = String.format(doCheckUrl, sessionid, url);
+		String content = HttpUtil.executeGet(requestUrl.toString());
+		String[] contents = content.split(",", 3);
+		if (contents.length != 3) {
+			return CheckUrlStatus.FailToRstLengthError;
+		}
+		delay(request, response, contents[2]);
+		// no login
+		if ("false".equals(contents[0])) {
+			// 这样跳转解决了，页面中间嵌套页面的问题。
+			String script = "<script>";
+			script += "alert('您的身份已失效，请重新登录!');";
+			script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
+			script += "</script>";
+			response.setContentType("text/html;charset=utf-8");
+			response.getWriter().println(script);
+			return CheckUrlStatus.FailToNoLogin;
+		}
+		// no permissions
+		if ("false".equals(contents[1])) {
+			response.sendRedirect(noPermissionsPage);
+			return CheckUrlStatus.FailToNoPermissions;
+		}
+		return CheckUrlStatus.SUCCESS;
 	}
 
 	@Override
@@ -166,6 +207,8 @@ public class PermissionsFilter implements Filter {
 				}
 			}
 		}
+		// url 处理
+		doCheckUrl = serviceUrl + "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
 		System.out.println("初始化配置：on-off              : " + onOff);
 		System.out.println("初始化配置：systemName          : " + systemName);
 		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
@@ -175,6 +218,7 @@ public class PermissionsFilter implements Filter {
 		System.out.println("初始化配置：ignoreUrls          : " + ignoreUrls);
 		System.out.println("初始化配置：ignoreUrlsSet       : " + ignoreUrlsSet);
 		System.out.println("初始化配置：ignoreUrlsPrefixSet : " + ignoreUrlsPrefixSet);
+		System.out.println("初始化配置：doCheckUrl          : " + doCheckUrl);
 		if (ignoreUrlsPrefixSet.size() > 10) {
 			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于10个，将会严重影响系统性能。");
 		} else if (ignoreUrlsPrefixSet.size() > 5) {
