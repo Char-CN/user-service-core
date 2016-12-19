@@ -9,7 +9,9 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 
 import javax.servlet.Filter;
 import javax.servlet.FilterChain;
@@ -22,9 +24,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.blazer.userservice.core.model.SessionModel;
+import org.blazer.userservice.core.model.UserModel;
 import org.blazer.userservice.core.util.HttpUtil;
 import org.blazer.userservice.core.util.SessionUtil;
 import org.blazer.userservice.core.util.StringUtil;
+
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 需要在web.xml中配置如下字段信息:onOff、systemName、serviceUrl、innerServiceUrl、
@@ -49,6 +55,7 @@ public class PermissionsFilter implements Filter {
 	private static Integer cookieSeconds = null;
 	private static boolean onOff = false;
 	private static String doCheckUrl = null;
+	private static String doGetUserAll = null;
 
 	@Override
 	public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
@@ -161,6 +168,13 @@ public class PermissionsFilter implements Filter {
 		return CheckUrlStatus.Success;
 	}
 
+	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url) throws Exception {
+		ObjectMapper objectMapper = new ObjectMapper();
+		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
+		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(String.format(doGetUserAll, systemName, url)), javaType);
+		return list;
+	}
+
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		systemName = filterConfig.getInitParameter("systemName");
@@ -209,6 +223,7 @@ public class PermissionsFilter implements Filter {
 		}
 		// url 处理
 		doCheckUrl = serviceUrl + "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
+		doGetUserAll = serviceUrl + "/userservice/getuserall.do?systemName=%s&url=%s";
 		System.out.println("初始化配置：on-off              : " + onOff);
 		System.out.println("初始化配置：systemName          : " + systemName);
 		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
