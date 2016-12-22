@@ -23,6 +23,7 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.blazer.userservice.core.model.CheckUrlStatus;
 import org.blazer.userservice.core.model.SessionModel;
 import org.blazer.userservice.core.model.UserModel;
 import org.blazer.userservice.core.util.HttpUtil;

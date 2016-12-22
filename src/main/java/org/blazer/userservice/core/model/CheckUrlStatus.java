@@ -1,4 +1,4 @@
-package org.blazer.userservice.core.filter;
+package org.blazer.userservice.core.model;
 
 public enum CheckUrlStatus {
 
