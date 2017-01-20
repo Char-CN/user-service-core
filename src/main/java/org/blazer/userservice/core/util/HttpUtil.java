@@ -40,11 +40,14 @@ public class HttpUtil {
 			br = new BufferedReader(isr);
 			int count = 1;
 			while ((line = br.readLine()) != null) {
-				if (line.contains("ttl") || line.contains("TTL")) {
-					rst = true;
+				if (line.contains("unknown") || line.contains("UNKNOWN")) {
+					rst = false;
 					break;
 				} else if (line.contains("timeout") || line.contains("TIMEOUT")) {
 					rst = false;
+					break;
+				} else if (line.contains("ttl") || line.contains("TTL")) {
+					rst = true;
 					break;
 				}
 				if (count == 5) {
