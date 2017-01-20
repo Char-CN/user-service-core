@@ -23,6 +23,8 @@ import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.apache.http.client.ClientProtocolException;
+import org.blazer.userservice.core.model.ChangeNode;
 import org.blazer.userservice.core.model.CheckUrlStatus;
 import org.blazer.userservice.core.model.SessionModel;
 import org.blazer.userservice.core.model.UserModel;
@@ -30,7 +32,9 @@ import org.blazer.userservice.core.util.HttpUtil;
 import org.blazer.userservice.core.util.SessionUtil;
 import org.blazer.userservice.core.util.StringUtil;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -48,7 +52,7 @@ public class PermissionsFilter implements Filter {
 	public static final String DOMAIN_REG = "[http|https]://.*([.][a-zA-Z0-9]*[.][a-zA-Z0-9]*)/*.*";
 	private static String systemName = null;
 	private static String serviceUrl = null;
-	private static String innerServiceUrl = null;
+	private static ChangeNode serviceNode = null;
 	private static String noPermissionsPage = null;
 	private static String templateJs = null;
 	private static HashSet<String> ignoreUrlsSet = null;
@@ -57,6 +61,9 @@ public class PermissionsFilter implements Filter {
 	private static boolean onOff = false;
 	private static String doCheckUrl = null;
 	private static String doGetUserAll = null;
+	private static int eCount = 0;
+
+	private FilterConfig filterConfig;
 
 	@Override
 	public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
@@ -84,43 +91,6 @@ public class PermissionsFilter implements Filter {
 			return;
 		}
 		try {
-			// StringBuilder requestUrl = new StringBuilder(innerServiceUrl);
-			// requestUrl.append("/userservice/checkurl.do?");
-			// requestUrl.append(SESSION_KEY).append("=").append(sessionid);
-			// requestUrl.append("&").append("systemName").append("=").append(systemName);
-			// requestUrl.append("&").append("url").append("=").append(url);
-//			String sessionid = getSessionId(request);
-//			String requestUrl = String.format(doCheckUrl, sessionid, url);
-//			String content = HttpUtil.executeGet(requestUrl.toString());
-//			System.out.println("验证Url：" + requestUrl);
-//			System.out.println("验证结果：" + content);
-//			String[] contents = content.split(",", 3);
-//			if (contents.length != 3) {
-//				System.err.println("验证提示：服务器返回结果的长度不对。");
-//			}
-//			delay(request, response, contents[2]);
-//			// no login
-//			if ("false".equals(contents[0])) {
-//				System.err.println("验证提示：没有登录。");
-//				// 这样跳转解决了，页面中间嵌套页面的问题。
-//				// String script = "<script>window.location.href = '" +
-//				// serviceUrl + "/tologin.html?url=' +
-//				// encodeURIComponent(location.href);</script>";
-//				String script = "<script>";
-//				script += "alert('您的身份已失效，请重新登录!');";
-//				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
-//				script += "</script>";
-//				System.err.println(script);
-//				response.setContentType("text/html;charset=utf-8");
-//				response.getWriter().println(script);
-//				return;
-//			}
-//			// no permissions
-//			if ("false".equals(contents[1])) {
-//				System.err.println("验证提示：没有权限。");
-//				response.sendRedirect(noPermissionsPage);
-//				return;
-//			}
 			CheckUrlStatus cus = checkUrl(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
 				System.err.println("验证提示：服务器返回结果的长度不对。");
@@ -136,23 +106,30 @@ public class PermissionsFilter implements Filter {
 				response.getWriter().println(script);
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoPermissions) {
-				response.sendRedirect(noPermissionsPage);
+				response.sendRedirect(serviceUrl + noPermissionsPage);
 				System.err.println("验证提示：没有权限。");
 				return;
 			}
-		} catch (Exception e) {
+		} catch (ClientProtocolException e) {
 			e.printStackTrace();
-			System.err.println("验证userservice出现错误。。。");
+			++eCount;
+			System.err.println("验证userservice出现错误。" + eCount);
+			response.sendRedirect(noPermissionsPage);
+			return;
+
+		} catch (IOException e) {
+			e.printStackTrace();
+			++eCount;
+			System.err.println("验证userservice出现错误。" + eCount);
 			response.sendRedirect(noPermissionsPage);
 			return;
 		}
 		chain.doFilter(req, resp);
 	}
 
-	public static CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws Exception {
+	public static CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws ClientProtocolException, IOException {
 		String sessionid = getSessionId(request);
-		String requestUrl = String.format(doCheckUrl, sessionid, url);
-		String content = HttpUtil.executeGet(requestUrl.toString());
+		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sessionid, url));
 		String[] contents = content.split(",", 3);
 		if (contents.length != 3) {
 			return CheckUrlStatus.FailToRstLengthError;
@@ -167,26 +144,27 @@ public class PermissionsFilter implements Filter {
 		return CheckUrlStatus.Success;
 	}
 
-	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url) throws Exception {
+	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url)
+			throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
-		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(String.format(doGetUserAll, systemName, url)), javaType);
+		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserAll, systemName, url)), javaType);
 		return list;
 	}
 
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
+		this.filterConfig = filterConfig;
 		systemName = filterConfig.getInitParameter("systemName");
 		serviceUrl = filterConfig.getInitParameter("serviceUrl");
-		innerServiceUrl = filterConfig.getInitParameter("innerServiceUrl");
-		if (innerServiceUrl == null) {
-			innerServiceUrl = serviceUrl;
-		}
+		// 根据配置的ServiceUrl选择一个host
+		serviceNode = new ChangeNode(serviceUrl);
+		initServiceUrl();
 		noPermissionsPage = filterConfig.getInitParameter("noPermissionsPage");
 		try {
 			if (noPermissionsPage == null || filterConfig.getServletContext().getResource("/" + noPermissionsPage) == null) {
 				System.err.println("noPermissionsPage没有配置或找不到该文件。");
-				noPermissionsPage = serviceUrl + "/nopermissions.html";
+				noPermissionsPage = "/nopermissions.html";
 			}
 		} catch (Exception e) {
 			System.err.println("初始化noPermissionsPage出错。" + e.getMessage());
@@ -201,10 +179,6 @@ public class PermissionsFilter implements Filter {
 		// 过滤的URL
 		ignoreUrlsSet = new HashSet<String>();
 		ignoreUrlsPrefixSet = new HashSet<String>();
-		// 强制过滤/login.html和/pwd.html
-		// ignoreUrlsSet.add("/tologin.html");
-		// ignoreUrlsSet.add("/login.html");
-		// ignoreUrlsSet.add("/pwd.html");
 		String ignoreUrls = filterConfig.getInitParameter("ignoreUrls");
 		if (ignoreUrls != null && !"".equals(ignoreUrls)) {
 			String[] urls = ignoreUrls.split(",");
@@ -221,12 +195,11 @@ public class PermissionsFilter implements Filter {
 			}
 		}
 		// url 处理
-		doCheckUrl = serviceUrl + "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
-		doGetUserAll = serviceUrl + "/userservice/getuserall.do?systemName=%s&url=%s";
+		doCheckUrl = "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
+		doGetUserAll = "/userservice/getuserall.do?systemName=%s&url=%s";
 		System.out.println("初始化配置：on-off              : " + onOff);
 		System.out.println("初始化配置：systemName          : " + systemName);
 		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
-		System.out.println("初始化配置：innerServiceUrl     : " + innerServiceUrl);
 		System.out.println("初始化配置：noPermissionsPage   : " + noPermissionsPage);
 		System.out.println("初始化配置：cookieSeconds       : " + cookieSeconds);
 		System.out.println("初始化配置：ignoreUrls          : " + ignoreUrls);
@@ -236,8 +209,52 @@ public class PermissionsFilter implements Filter {
 		if (ignoreUrlsPrefixSet.size() > 10) {
 			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于10个，将会严重影响系统性能。");
 		} else if (ignoreUrlsPrefixSet.size() > 5) {
-			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于5个，将会影响系统性能。");
+			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于5个，可能会影响系统性能。");
 		}
+		// 初始化模板
+		initTemplate();
+		Thread checkConnection = new Thread(new Runnable() {
+			@Override
+			public void run() {
+				while (true) {
+					try {
+						Thread.sleep(60000);
+						if (eCount > 10 && !HttpUtil.ping(serviceUrl)) {
+							System.out.println("检测到异常次数[" + eCount + "]，无法ping通[" + serviceUrl + "]，开始重新初始化serviceUrl配置。");
+							String url = serviceUrl;
+							System.out.println("系统初始化配置：serviceUrl          : " + serviceUrl);
+							initServiceUrl();
+							System.out.println("重新初始化配置：serviceUrl          : " + serviceUrl);
+							if (!url.equals(serviceUrl)) {
+								initTemplate();
+							} else {
+								System.out.println("重新初始化配置失败，需要管理员查看网络信息。");
+							}
+							eCount = 0;
+						}
+					} catch (Exception e) {
+					}
+				}
+			}
+		});
+		checkConnection.start();
+		System.out.println("初始化配置：success by source   : " + this.getClass().getPackage());
+	}
+
+	private void initServiceUrl() {
+		if (serviceNode.size() > 1) {
+			for (int i = 0; i < serviceNode.size(); i++) {
+				if (HttpUtil.ping(serviceNode.get(i))) {
+					serviceUrl = serviceNode.get(i);
+					break;
+				} else {
+					serviceUrl = serviceNode.next(i);
+				}
+			}
+		}
+	}
+
+	private void initTemplate() {
 		if (templateJs != null && !"".equals(templateJs)) {
 			for (String keyValue : templateJs.split(",")) {
 				String[] kv = keyValue.split(":");
@@ -246,15 +263,14 @@ public class PermissionsFilter implements Filter {
 					continue;
 				}
 				// 根据模板生成文件
-				newTemplate(filterConfig, kv[0], kv[1]);
+				newTemplate(kv[0], kv[1]);
 			}
 		} else {
 			System.out.println("初始化配置：没有需要生成的JS模板");
 		}
-		System.out.println("初始化配置：success by source   : " + this.getClass().getPackage());
 	}
 
-	private void newTemplate(FilterConfig filterConfig, String template, String js) {
+	private void newTemplate(String template, String js) {
 		String filePath = null;
 		try {
 			filePath = filterConfig.getServletContext().getResource("/").getPath();
@@ -372,10 +388,6 @@ public class PermissionsFilter implements Filter {
 
 	public static String getServiceUrl() {
 		return serviceUrl;
-	}
-
-	public static String getInnerServiceUrl() {
-		return innerServiceUrl;
 	}
 
 	public static String getNoPermissionsPage() {
