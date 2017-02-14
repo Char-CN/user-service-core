@@ -77,7 +77,6 @@ public class PermissionsFilter implements Filter {
 		if (!"".equals(request.getContextPath())) {
 			url = url.replaceFirst(request.getContextPath(), "");
 		}
-		System.out.println("action url : " + url);
 		// 访问userservice服务不需要经过权限认证
 		for (String perfix : ignoreUrlsPrefixSet) {
 			if (url.startsWith(perfix)) {
@@ -90,6 +89,7 @@ public class PermissionsFilter implements Filter {
 			chain.doFilter(req, resp);
 			return;
 		}
+		System.out.println("action url : " + url);
 		try {
 			CheckUrlStatus cus = checkUrl(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
@@ -98,30 +98,28 @@ public class PermissionsFilter implements Filter {
 			} else if (cus == CheckUrlStatus.FailToNoLogin) {
 				System.err.println("验证提示：没有登录。");
 				// 这样跳转解决了，页面中间嵌套页面的问题。
-				String script = "<script>";
-				script += "alert('您的身份已失效，请重新登录!');";
-				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);";
-				script += "</script>";
+				String script = "<script>alert('您的身份已失效，请重新登录!');";
+				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);</script>";
 				response.setContentType("text/html;charset=utf-8");
 				response.getWriter().println(script);
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoPermissions) {
-				response.sendRedirect(serviceUrl + noPermissionsPage);
 				System.err.println("验证提示：没有权限。");
+				response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 				return;
 			}
 		} catch (ClientProtocolException e) {
 			e.printStackTrace();
 			++eCount;
 			System.err.println("验证userservice出现错误。" + eCount);
-			response.sendRedirect(noPermissionsPage);
+			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			return;
 
 		} catch (IOException e) {
 			e.printStackTrace();
 			++eCount;
 			System.err.println("验证userservice出现错误。" + eCount);
-			response.sendRedirect(noPermissionsPage);
+			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			return;
 		}
 		chain.doFilter(req, resp);
@@ -319,10 +317,6 @@ public class PermissionsFilter implements Filter {
 		}
 	}
 
-	@Override
-	public void destroy() {
-	}
-
 	public static void delay(HttpServletRequest request, HttpServletResponse response, String newSession) throws UnsupportedEncodingException {
 		if ("".equals(newSession)) {
 			newSession = null;
@@ -400,6 +394,10 @@ public class PermissionsFilter implements Filter {
 
 	public static boolean isOnOff() {
 		return onOff;
+	}
+
+	@Override
+	public void destroy() {
 	}
 
 }
