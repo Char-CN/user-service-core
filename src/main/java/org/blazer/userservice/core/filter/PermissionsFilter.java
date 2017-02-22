@@ -61,6 +61,7 @@ public class PermissionsFilter implements Filter {
 	private static boolean onOff = false;
 	private static String doCheckUrl = null;
 	private static String doGetUserAll = null;
+	private static String doGetUserByUserIds = null;
 	private static int eCount = 0;
 
 	private FilterConfig filterConfig;
@@ -150,6 +151,14 @@ public class PermissionsFilter implements Filter {
 		return list;
 	}
 
+	public static List<UserModel> findAllUserByUserIds(String userIds)
+			throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
+		ObjectMapper objectMapper = new ObjectMapper();
+		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
+		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserByUserIds, userIds)), javaType);
+		return list;
+	}
+
 	@Override
 	public void init(FilterConfig filterConfig) throws ServletException {
 		this.filterConfig = filterConfig;
@@ -195,6 +204,7 @@ public class PermissionsFilter implements Filter {
 		// url 处理
 		doCheckUrl = "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
 		doGetUserAll = "/userservice/getuserall.do?systemName=%s&url=%s";
+		doGetUserByUserIds = "/userservice/getuserbyuserids.do?ids=%s";
 		System.out.println("初始化配置：on-off              : " + onOff);
 		System.out.println("初始化配置：systemName          : " + systemName);
 		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
