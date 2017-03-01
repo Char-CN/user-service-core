@@ -92,7 +92,7 @@ public class PermissionsFilter implements Filter {
 		}
 		System.out.println("action url : " + url);
 		try {
-			CheckUrlStatus cus = checkUrl(request, response, url);
+			CheckUrlStatus cus = checkUrlAndDelay(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
 				System.err.println("验证提示：服务器返回结果的长度不对。");
 				return;
@@ -126,9 +126,9 @@ public class PermissionsFilter implements Filter {
 		chain.doFilter(req, resp);
 	}
 
-	public static CheckUrlStatus checkUrl(HttpServletRequest request, HttpServletResponse response, String url) throws ClientProtocolException, IOException {
-		String sessionid = getSessionId(request);
-		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sessionid, url));
+	private static CheckUrlStatus checkUrlAndDelay(HttpServletRequest request, HttpServletResponse response, String url) throws ClientProtocolException, IOException {
+		String sessionId = getSessionId(request);
+		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sessionId, url));
 		String[] contents = content.split(",", 3);
 		if (contents.length != 3) {
 			return CheckUrlStatus.FailToRstLengthError;
@@ -143,16 +143,31 @@ public class PermissionsFilter implements Filter {
 		return CheckUrlStatus.Success;
 	}
 
-	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url)
-			throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
+	public static CheckUrlStatus checkUrl(SessionModel sm, String url) throws ClientProtocolException, IOException {
+//		String sessionid = getSessionId(request);
+		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sm.getSessionStr(), url));
+		String[] contents = content.split(",", 3);
+		if (contents.length != 3) {
+			return CheckUrlStatus.FailToRstLengthError;
+		}
+//		delay(request, response, contents[2]);
+		if ("false".equals(contents[0])) {
+			return CheckUrlStatus.FailToNoLogin;
+		}
+		if ("false".equals(contents[1])) {
+			return CheckUrlStatus.FailToNoPermissions;
+		}
+		return CheckUrlStatus.Success;
+	}
+
+	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url) throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
 		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserAll, systemName, url)), javaType);
 		return list;
 	}
 
-	public static List<UserModel> findAllUserByUserIds(String userIds)
-			throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
+	public static List<UserModel> findAllUserByUserIds(String userIds) throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
 		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserByUserIds, userIds)), javaType);
@@ -361,7 +376,7 @@ public class PermissionsFilter implements Filter {
 		return StringUtil.findOneStrByReg(request.getRequestURL().toString(), DOMAIN_REG);
 	}
 
-	public static String getSessionId(HttpServletRequest request) {
+	private static String getSessionId(HttpServletRequest request) {
 		String sessionValue = request.getParameter(SESSION_KEY);
 		if (sessionValue != null) {
 			System.out.println(SESSION_KEY + " 从 request 中取值 : " + sessionValue);

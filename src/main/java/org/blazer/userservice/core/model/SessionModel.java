@@ -24,6 +24,8 @@ public class SessionModel {
 
 	private boolean isValid;
 
+	private String sessionStr;
+
 	public SessionModel() {
 	}
 
@@ -91,10 +93,18 @@ public class SessionModel {
 		this.isValid = isValid;
 	}
 
+	public String getSessionStr() {
+		return sessionStr;
+	}
+
+	public void setSessionStr(String sessionStr) {
+		this.sessionStr = sessionStr;
+	}
+
 	@Override
 	public String toString() {
-		return "SessionBean [loginType=" + loginType + ", userId=" + userId + ", userName=" + userName + ", userNameCn=" + userNameCn + ", phoneNumber="
-				+ phoneNumber + ", email=" + email + ", expireTime=" + expireTime + ", isValid=" + isValid + "]";
+		return "SessionModel [loginType=" + loginType + ", userId=" + userId + ", userName=" + userName + ", userNameCn=" + userNameCn + ", phoneNumber=" + phoneNumber
+				+ ", email=" + email + ", expireTime=" + expireTime + ", isValid=" + isValid + ", sessionStr=" + sessionStr + "]";
 	}
 
 }

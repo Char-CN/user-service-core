@@ -52,8 +52,9 @@ public class SessionUtil {
 	 * @return
 	 */
 	public static SessionModel decode(String sessionStr) {
-		sessionStr = DesUtil.decrypt(sessionStr);
 		SessionModel bean = new SessionModel();
+		bean.setSessionStr(sessionStr);
+		sessionStr = DesUtil.decrypt(sessionStr);
 		if (StringUtils.isBlank(sessionStr)) {
 			bean.setLoginType(null);
 			bean.setUserId(null);
