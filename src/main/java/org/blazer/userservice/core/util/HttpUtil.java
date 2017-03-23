@@ -15,6 +15,11 @@ public class HttpUtil {
 
 	public static final String HOST_REG = "[http|https]://([.a-zA-Z0-9]*)/*.*";
 
+	public static void main(String[] args) {
+		ping("http://bigdata.blazer.org");
+		ping("http://bigdata.blazer.org", 1);
+	}
+
 	public static String getHost(String url) {
 		String host = StringUtil.findOneStrByReg(url, HOST_REG);
 		if (host == null) {
@@ -23,8 +28,24 @@ public class HttpUtil {
 		return host;
 	}
 
+	/**
+	 * 默认 5s
+	 * @param url
+	 * @return
+	 */
 	public static boolean ping(String url) {
-		String ip = null;
+		return ping(url, 5);
+	}
+
+	/**
+	 * Ping命令使用
+	 * @param url
+	 * @param timeout 单位秒
+	 * @return
+	 */
+	public static boolean ping(String url, int timeout) {
+		String ip = getHost(url);
+		System.out.print("ping [" + ip + "]");
 		boolean rst = false;
 		try {
 			Runtime runtime = Runtime.getRuntime();
@@ -33,8 +54,13 @@ public class HttpUtil {
 			InputStream is = null;
 			InputStreamReader isr = null;
 			BufferedReader br = null;
-			ip = getHost(url);
-			process = runtime.exec("ping " + ip);
+			if (OsUtil.isLinux()) {
+				process = runtime.exec("ping -w " + timeout + " " + ip);
+			} else if (OsUtil.isMac()) {
+				process = runtime.exec("ping -W " + timeout + " " + ip);
+			} else {
+				process = runtime.exec("ping -w " + timeout + " " + ip);
+			}
 			is = process.getInputStream();
 			isr = new InputStreamReader(is);
 			br = new BufferedReader(isr);
@@ -62,7 +88,7 @@ public class HttpUtil {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		System.out.println("ping " + ip + " " + rst);
+		System.out.println(" return : " + rst);
 		return rst;
 	}
 
