@@ -38,8 +38,8 @@ import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * 需要在web.xml中配置如下字段信息:onOff、systemName、serviceUrl、innerServiceUrl、
- * noPermissionsPage、cookieSeconds、ignoreUrls
+ * 需要在web.xml中配置如下字段信息:
+ * onOff、systemName、serviceUrl、noPermissionsPage、cookieSeconds、ignoreUrls、templateJs
  * 
  * @author hyy
  *
@@ -90,7 +90,7 @@ public class PermissionsFilter implements Filter {
 			chain.doFilter(req, resp);
 			return;
 		}
-		System.out.println("action url : " + url);
+		log("action url : " + url);
 		try {
 			CheckUrlStatus cus = checkUrlAndDelay(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
@@ -220,19 +220,19 @@ public class PermissionsFilter implements Filter {
 		doCheckUrl = "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
 		doGetUserAll = "/userservice/getuserall.do?systemName=%s&url=%s";
 		doGetUserByUserIds = "/userservice/getuserbyuserids.do?ids=%s";
-		System.out.println("初始化配置：on-off              : " + onOff);
-		System.out.println("初始化配置：systemName          : " + systemName);
-		System.out.println("初始化配置：serviceUrl          : " + serviceUrl);
-		System.out.println("初始化配置：noPermissionsPage   : " + noPermissionsPage);
-		System.out.println("初始化配置：cookieSeconds       : " + cookieSeconds);
-		System.out.println("初始化配置：ignoreUrls          : " + ignoreUrls);
-		System.out.println("初始化配置：ignoreUrlsSet       : " + ignoreUrlsSet);
-		System.out.println("初始化配置：ignoreUrlsPrefixSet : " + ignoreUrlsPrefixSet);
-		System.out.println("初始化配置：doCheckUrl          : " + doCheckUrl);
+		log("初始化配置：on-off              : " + onOff);
+		log("初始化配置：systemName          : " + systemName);
+		log("初始化配置：serviceUrl          : " + serviceUrl);
+		log("初始化配置：noPermissionsPage   : " + noPermissionsPage);
+		log("初始化配置：cookieSeconds       : " + cookieSeconds);
+		log("初始化配置：ignoreUrls          : " + ignoreUrls);
+		log("初始化配置：ignoreUrlsSet       : " + ignoreUrlsSet);
+		log("初始化配置：ignoreUrlsPrefixSet : " + ignoreUrlsPrefixSet);
+		log("初始化配置：doCheckUrl          : " + doCheckUrl);
 		if (ignoreUrlsPrefixSet.size() > 10) {
-			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于10个，将会严重影响系统性能。");
+			log("【提示】：ignoreUrlsPrefixSet的值大于10个，将会严重影响系统性能。");
 		} else if (ignoreUrlsPrefixSet.size() > 5) {
-			System.out.println("【提示】：ignoreUrlsPrefixSet的值大于5个，可能会影响系统性能。");
+			log("【提示】：ignoreUrlsPrefixSet的值大于5个，可能会影响系统性能。");
 		}
 		// 初始化模板
 		initTemplate();
@@ -243,15 +243,15 @@ public class PermissionsFilter implements Filter {
 					try {
 						Thread.sleep(60000);
 						if (eCount > 10 && !HttpUtil.ping(serviceUrl)) {
-							System.out.println("检测到异常次数[" + eCount + "]，无法ping通[" + serviceUrl + "]，开始重新初始化serviceUrl配置。");
+							log("检测到异常次数[" + eCount + "]，无法ping通[" + serviceUrl + "]，开始重新初始化serviceUrl配置。");
 							String url = serviceUrl;
-							System.out.println("系统初始化配置：serviceUrl          : " + serviceUrl);
+							log("系统初始化配置：serviceUrl          : " + serviceUrl);
 							initServiceUrl();
-							System.out.println("重新初始化配置：serviceUrl          : " + serviceUrl);
+							log("重新初始化配置：serviceUrl          : " + serviceUrl);
 							if (!url.equals(serviceUrl)) {
 								initTemplate();
 							} else {
-								System.out.println("重新初始化配置失败，需要管理员查看网络信息。");
+								log("重新初始化配置失败，需要管理员查看网络信息。");
 							}
 							eCount = 0;
 						}
@@ -261,7 +261,7 @@ public class PermissionsFilter implements Filter {
 			}
 		});
 		checkConnection.start();
-		System.out.println("初始化配置：success by source   : " + this.getClass().getPackage());
+		log("初始化配置：success by source   : " + this.getClass().getPackage());
 	}
 
 	private void initServiceUrl() {
@@ -289,7 +289,7 @@ public class PermissionsFilter implements Filter {
 				newTemplate(kv[0], kv[1]);
 			}
 		} else {
-			System.out.println("初始化配置：没有需要生成的JS模板");
+			log("初始化配置：没有需要生成的JS模板");
 		}
 	}
 
@@ -299,10 +299,10 @@ public class PermissionsFilter implements Filter {
 			filePath = filterConfig.getServletContext().getResource("/").getPath();
 			filePath = filePath.substring(0, filePath.length() - 1);
 			if (filterConfig.getServletContext().getResource(template) == null) {
-				System.out.println("初始化配置：找不到js模板          : " + filePath + template);
+				log("初始化配置：not found template  : " + filePath + template);
 			} else {
-				System.out.println("初始化配置：js模板路径            : " + filePath + template);
-				System.out.println("初始化配置：新生成js文件          : " + filePath + js);
+				log("初始化配置：template path       : " + filePath + template);
+				log("初始化配置：template child path : " + filePath + js);
 				BufferedReader br = null;
 				OutputStreamWriter osw = null;
 				try {
@@ -348,10 +348,10 @@ public class PermissionsFilter implements Filter {
 		}
 		String domain = getDomain(request);
 		if (domain == null) {
-			System.out.println("delay error ~ domain is null ~ new session : " + newSession);
+			log("delay error ~ domain is null ~ new session : " + newSession);
 			return;
 		}
-		System.out.println("delay ~ [" + domain + "] ~ new session : " + newSession);
+		log("delay ~ [" + domain + "] ~ new session : " + newSession);
 		Cookie key = new Cookie(SESSION_KEY, newSession);
 		key.setPath("/");
 		key.setDomain(domain);
@@ -379,19 +379,19 @@ public class PermissionsFilter implements Filter {
 	private static String getSessionId(HttpServletRequest request) {
 		String sessionValue = request.getParameter(SESSION_KEY);
 		if (sessionValue != null) {
-			System.out.println(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
+			log(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
 			return sessionValue;
 		}
 		Cookie[] cookies = request.getCookies();
 		if (cookies != null) {
 			for (Cookie cookie : cookies) {
 				if (SESSION_KEY.equals(cookie.getName())) {
-					System.out.println(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
+					log(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
 					return cookie.getValue();
 				}
 			}
 		}
-		System.out.println(SESSION_KEY + " 从 cookie  中取值 : null");
+		log(SESSION_KEY + " 从 cookie  中取值 : null");
 		return null;
 	}
 
@@ -423,6 +423,10 @@ public class PermissionsFilter implements Filter {
 
 	@Override
 	public void destroy() {
+	}
+
+	private static void log(String msg) {
+		System.out.println("[PermissionsFilter] - " + msg);
 	}
 
 }
