@@ -1,5 +1,8 @@
 package org.blazer.userservice.core.util;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+
 import org.apache.commons.lang3.StringUtils;
 import org.blazer.userservice.core.model.LoginType;
 import org.blazer.userservice.core.model.SessionModel;
@@ -16,10 +19,11 @@ public class SessionUtil {
 	 * 分隔符
 	 */
 	public static final String SEPARATOR = ",";
-	
+
 	public static void main(String[] args) {
 		System.out.println(encode(1480061451914L,3,"heyunyang","何云洋","heyunyang@evergrande.com","",1));
-		System.out.println(decode("2e722b4e56a82eaf5d51218d182d49a8130eaa98213901a60bd9566da91e6513566e15a6a32710c0af87dc83a25b8c5eef105f41726a06b72c55322dd192f4bf"));
+		System.out.println(decode("1919b64b04ac69d852b29285d4b45da35f29b6c7ca88e76e18bffa0e311b1d874968fc5890a8221db57e26ec55267dfec39e835a03fc0a76"));
+		System.out.println(getTime(decode("1919b64b04ac69d852b29285d4b45da35f29b6c7ca88e76e18bffa0e311b1d874968fc5890a8221db57e26ec55267dfec39e835a03fc0a76")));
 	}
 
 	/**
@@ -43,6 +47,12 @@ public class SessionUtil {
 //		System.out.println(String.format(FORMAT, expire, id, userName, userNameCn, email, phoneNumber, loginType));
 		String sessionId = DesUtil.encrypt(String.format(FORMAT, expire, id, userName, userNameCn, email, phoneNumber, loginType));
 		return sessionId;
+	}
+
+	public static String getTime(SessionModel sm) {
+		Date date = new Date(sm.getExpireTime());
+		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+		return simpleDateFormat.format(date);
 	}
 
 	/**

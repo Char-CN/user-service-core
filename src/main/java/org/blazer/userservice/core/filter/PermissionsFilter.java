@@ -94,10 +94,10 @@ public class PermissionsFilter implements Filter {
 		try {
 			CheckUrlStatus cus = checkUrlAndDelay(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
-				System.err.println("验证提示：服务器返回结果的长度不对。");
+				err("验证提示：服务器返回结果的长度不对。");
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoLogin) {
-				System.err.println("验证提示：没有登录。");
+				err("验证提示：没有登录。");
 				// 这样跳转解决了，页面中间嵌套页面的问题。
 				String script = "<script>alert('您的身份已失效，请重新登录!');";
 				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);</script>";
@@ -105,21 +105,21 @@ public class PermissionsFilter implements Filter {
 				response.getWriter().println(script);
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoPermissions) {
-				System.err.println("验证提示：没有权限。");
+				err("验证提示：没有权限。");
 				response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 				return;
 			}
 		} catch (ClientProtocolException e) {
 			e.printStackTrace();
 			++eCount;
-			System.err.println("验证userservice出现错误。" + eCount);
+			err("验证userservice出现错误。" + eCount);
 			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			return;
 
 		} catch (IOException e) {
 			e.printStackTrace();
 			++eCount;
-			System.err.println("验证userservice出现错误。" + eCount);
+			err("验证userservice出现错误。" + eCount);
 			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			return;
 		}
@@ -131,13 +131,16 @@ public class PermissionsFilter implements Filter {
 		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sessionId, url));
 		String[] contents = content.split(",", 3);
 		if (contents.length != 3) {
+			err(CheckUrlStatus.FailToRstLengthError + " : " + sessionId + " | " + getUserName(request));
 			return CheckUrlStatus.FailToRstLengthError;
 		}
 		delay(request, response, contents[2]);
 		if ("false".equals(contents[0])) {
+			err(CheckUrlStatus.FailToNoLogin + " : " + sessionId + " | " + getUserName(request));
 			return CheckUrlStatus.FailToNoLogin;
 		}
 		if ("false".equals(contents[1])) {
+			err(CheckUrlStatus.FailToNoPermissions + " : " + sessionId + " | " + getUserName(request));
 			return CheckUrlStatus.FailToNoPermissions;
 		}
 		return CheckUrlStatus.Success;
@@ -185,18 +188,18 @@ public class PermissionsFilter implements Filter {
 		noPermissionsPage = filterConfig.getInitParameter("noPermissionsPage");
 		try {
 			if (noPermissionsPage == null || filterConfig.getServletContext().getResource("/" + noPermissionsPage) == null) {
-				System.err.println("noPermissionsPage没有配置或找不到该文件。");
+				err("noPermissionsPage没有配置或找不到该文件。");
 				noPermissionsPage = "/nopermissions.html";
 			}
 		} catch (Exception e) {
-			System.err.println("初始化noPermissionsPage出错。" + e.getMessage());
+			err("初始化noPermissionsPage出错。" + e.getMessage());
 		}
 		templateJs = filterConfig.getInitParameter("templateJs");
 		onOff = "1".equals(filterConfig.getInitParameter("on-off"));
 		try {
 			cookieSeconds = Integer.parseInt(filterConfig.getInitParameter("cookieSeconds"));
 		} catch (Exception e) {
-			System.err.println("初始化cookie时间出错。");
+			err("初始化cookie时间出错。");
 		}
 		// 过滤的URL
 		ignoreUrlsSet = new HashSet<String>();
@@ -282,7 +285,7 @@ public class PermissionsFilter implements Filter {
 			for (String keyValue : templateJs.split(",")) {
 				String[] kv = keyValue.split(":");
 				if (kv.length != 2) {
-					System.err.println("过滤错误JS生成配置：" + keyValue);
+					err("过滤错误JS生成配置：" + keyValue);
 					continue;
 				}
 				// 根据模板生成文件
@@ -347,11 +350,11 @@ public class PermissionsFilter implements Filter {
 			newSession = null;
 		}
 		String domain = getDomain(request);
+		log("delay ~ [" + domain + "] ~ new session : " + newSession);
 		if (domain == null) {
-			log("delay error ~ domain is null ~ new session : " + newSession);
+//			log("delay error ~ domain is null ~ new session : " + newSession);
 			return;
 		}
-		log("delay ~ [" + domain + "] ~ new session : " + newSession);
 		Cookie key = new Cookie(SESSION_KEY, newSession);
 		key.setPath("/");
 		key.setDomain(domain);
@@ -376,25 +379,33 @@ public class PermissionsFilter implements Filter {
 		return StringUtil.findOneStrByReg(request.getRequestURL().toString(), DOMAIN_REG);
 	}
 
-	private static String getSessionId(HttpServletRequest request) {
-		String sessionValue = request.getParameter(SESSION_KEY);
+	private static String getRequestCookie(HttpServletRequest request, String key) {
+		String sessionValue = request.getParameter(key);
 		if (sessionValue != null) {
-			log(SESSION_KEY + " 从 request 中取值 : " + sessionValue);
+			log(key + " 从 request 中取值 : " + sessionValue);
 			return sessionValue;
 		}
 		Cookie[] cookies = request.getCookies();
 		if (cookies != null) {
 			for (Cookie cookie : cookies) {
-				if (SESSION_KEY.equals(cookie.getName())) {
-					log(SESSION_KEY + " 从 cookie  中取值 : " + cookie.getValue());
+				if (key.equals(cookie.getName())) {
+					log(key + " 从 cookie  中取值 : " + cookie.getValue());
 					return cookie.getValue();
 				}
 			}
 		}
-		log(SESSION_KEY + " 从 cookie  中取值 : null");
+		log(key + " 从 cookie 和 request 中取值均为 : null");
 		return null;
 	}
 
+	private static String getSessionId(HttpServletRequest request) {
+		return getRequestCookie(request, SESSION_KEY);
+	}
+
+	private static String getUserName(HttpServletRequest request) {
+		return getRequestCookie(request, NAME_KEY);
+	}
+	
 	public static SessionModel getSessionModel(HttpServletRequest request) {
 		String sessionStr = getSessionId(request);
 		SessionModel sessionModel = SessionUtil.decode(sessionStr);
@@ -426,7 +437,11 @@ public class PermissionsFilter implements Filter {
 	}
 
 	private static void log(String msg) {
-		System.out.println("[PermissionsFilter] - " + msg);
+		System.out.println("[PermissionsFilter] [Info ] - " + msg);
+	}
+
+	private static void err(String msg) {
+		System.err.println("[PermissionsFilter] [Error] - " + msg);
 	}
 
 }
