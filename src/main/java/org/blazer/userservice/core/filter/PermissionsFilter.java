@@ -113,14 +113,17 @@ public class PermissionsFilter implements Filter {
 			e.printStackTrace();
 			++eCount;
 			err("验证userservice出现错误。" + eCount);
-			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+//			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+			response.setContentType("text/html;charset=utf-8");
+			response.getWriter().println(e.getMessage() + "<br>UserService连接出错。");
 			return;
-
 		} catch (IOException e) {
 			e.printStackTrace();
 			++eCount;
 			err("验证userservice出现错误。" + eCount);
-			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+//			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+			response.setContentType("text/html;charset=utf-8");
+			response.getWriter().println(e.getMessage() + "<br>UserService连接出错。");
 			return;
 		}
 		chain.doFilter(req, resp);
