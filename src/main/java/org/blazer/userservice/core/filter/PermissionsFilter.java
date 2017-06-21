@@ -39,7 +39,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
  * 需要在web.xml中配置如下字段信息:
- * onOff、systemName、serviceUrl、noPermissionsPage、cookieSeconds、ignoreUrls、templateJs
+ * onOff、systemName、serviceUrl、noPermissionsPage、cookieSeconds、ignoreUrls、
+ * templateJs
  * 
  * @author hyy
  *
@@ -113,7 +114,8 @@ public class PermissionsFilter implements Filter {
 			e.printStackTrace();
 			++eCount;
 			err("验证userservice出现错误。" + eCount);
-//			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+			// response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" +
+			// URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			response.setContentType("text/html;charset=utf-8");
 			response.getWriter().println(e.getMessage() + "<br>UserService连接出错。");
 			return;
@@ -121,7 +123,8 @@ public class PermissionsFilter implements Filter {
 			e.printStackTrace();
 			++eCount;
 			err("验证userservice出现错误。" + eCount);
-//			response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" + URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
+			// response.sendRedirect(serviceUrl + noPermissionsPage + "?url=" +
+			// URLEncoder.encode(request.getRequestURL().toString(), "utf-8"));
 			response.setContentType("text/html;charset=utf-8");
 			response.getWriter().println(e.getMessage() + "<br>UserService连接出错。");
 			return;
@@ -149,14 +152,23 @@ public class PermissionsFilter implements Filter {
 		return CheckUrlStatus.Success;
 	}
 
+	/**
+	 * 查询本系统(当前系统,哪个系统调用的,就属于哪个系统)中的url是否有权限
+	 * 
+	 * @param sm
+	 * @param url
+	 * @return
+	 * @throws ClientProtocolException
+	 * @throws IOException
+	 */
 	public static CheckUrlStatus checkUrl(SessionModel sm, String url) throws ClientProtocolException, IOException {
-//		String sessionid = getSessionId(request);
+		// String sessionid = getSessionId(request);
 		String content = HttpUtil.executeGet(serviceUrl + String.format(doCheckUrl, sm.getSessionStr(), url));
 		String[] contents = content.split(",", 3);
 		if (contents.length != 3) {
 			return CheckUrlStatus.FailToRstLengthError;
 		}
-//		delay(request, response, contents[2]);
+		// delay(request, response, contents[2]);
 		if ("false".equals(contents[0])) {
 			return CheckUrlStatus.FailToNoLogin;
 		}
@@ -166,13 +178,34 @@ public class PermissionsFilter implements Filter {
 		return CheckUrlStatus.Success;
 	}
 
-	public static List<UserModel> findAllUserBySystemNameAndUrl(String systemName, String url) throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
+	/**
+	 * 查询本系统(当前系统,哪个系统调用的,就属于哪个系统)中拥有该url权限的所有用户
+	 * 
+	 * @param systemName
+	 * @param url
+	 * @return
+	 * @throws JsonParseException
+	 * @throws JsonMappingException
+	 * @throws ClientProtocolException
+	 * @throws IOException
+	 */
+	public static List<UserModel> findAllUserBySystemNameAndUrl(String url) throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
-		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserAll, systemName, url)), javaType);
+		List<UserModel> list = objectMapper.readValue(HttpUtil.executeGet(serviceUrl + String.format(doGetUserAll, url)), javaType);
 		return list;
 	}
 
+	/**
+	 * 根据userids查询所有user
+	 * 
+	 * @param userIds
+	 * @return
+	 * @throws JsonParseException
+	 * @throws JsonMappingException
+	 * @throws ClientProtocolException
+	 * @throws IOException
+	 */
 	public static List<UserModel> findAllUserByUserIds(String userIds) throws JsonParseException, JsonMappingException, ClientProtocolException, IOException {
 		ObjectMapper objectMapper = new ObjectMapper();
 		JavaType javaType = objectMapper.getTypeFactory().constructParametricType(ArrayList.class, UserModel.class);
@@ -224,8 +257,8 @@ public class PermissionsFilter implements Filter {
 		}
 		// url 处理
 		doCheckUrl = "/userservice/checkurl.do?systemName=" + systemName + "&" + SESSION_KEY + "=%s&url=%s";
-		doGetUserAll = "/userservice/getuserall.do?systemName=%s&url=%s";
-		doGetUserByUserIds = "/userservice/getuserbyuserids.do?ids=%s";
+		doGetUserAll = "/userservice/getuserall.do?systemName=" + systemName + "&url=%s";
+		doGetUserByUserIds = "/userservice/getuserbyuserids.do?userids=%s";
 		log("初始化配置：on-off              : " + onOff);
 		log("初始化配置：systemName          : " + systemName);
 		log("初始化配置：serviceUrl          : " + serviceUrl);
@@ -355,7 +388,8 @@ public class PermissionsFilter implements Filter {
 		String domain = getDomain(request);
 		log("delay ~ [" + domain + "] ~ new session : " + newSession);
 		if (domain == null) {
-//			log("delay error ~ domain is null ~ new session : " + newSession);
+			// log("delay error ~ domain is null ~ new session : " +
+			// newSession);
 			return;
 		}
 		Cookie key = new Cookie(SESSION_KEY, newSession);
@@ -408,7 +442,7 @@ public class PermissionsFilter implements Filter {
 	private static String getUserName(HttpServletRequest request) {
 		return getRequestCookie(request, NAME_KEY);
 	}
-	
+
 	public static SessionModel getSessionModel(HttpServletRequest request) {
 		String sessionStr = getSessionId(request);
 		SessionModel sessionModel = SessionUtil.decode(sessionStr);
