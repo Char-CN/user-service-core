@@ -69,37 +69,40 @@ public class PermissionsFilter implements Filter {
 
 	@Override
 	public void doFilter(ServletRequest req, ServletResponse resp, FilterChain chain) throws IOException, ServletException {
+		// 判断配置开关
 		if (!onOff) {
 			chain.doFilter(req, resp);
 			return;
 		}
 		HttpServletRequest request = (HttpServletRequest) req;
 		HttpServletResponse response = (HttpServletResponse) resp;
+		// 获取访问url
 		String url = request.getRequestURI();
 		if (!"".equals(request.getContextPath())) {
 			url = url.replaceFirst(request.getContextPath(), "");
 		}
-		// 访问userservice服务不需要经过权限认证
+		// 不经过该过滤器的路径，web.xml配置的过滤页面以及强制过滤/userservice/*
 		for (String perfix : ignoreUrlsPrefixSet) {
 			if (url.startsWith(perfix)) {
 				chain.doFilter(req, resp);
 				return;
 			}
 		}
-		// web.xml配置的过滤页面以及强制过滤/login.html和pwd.html
+		// 不经过该过滤器的路径，web.xml配置的过滤页面以及强制过滤/login.html和pwd.html
 		if (ignoreUrlsSet.contains(url)) {
 			chain.doFilter(req, resp);
 			return;
 		}
 		log("action url : " + url);
 		try {
+			// 验证并delay该sessionId
 			CheckUrlStatus cus = checkUrlAndDelay(request, response, url);
 			if (cus == CheckUrlStatus.FailToRstLengthError) {
 				err("验证提示：服务器返回结果的长度不对。");
 				return;
 			} else if (cus == CheckUrlStatus.FailToNoLogin) {
 				err("验证提示：没有登录。");
-				// 这样跳转解决了，页面中间嵌套页面的问题。
+				// 这样跳转解决了，页面中间嵌套页面的问题。但无法解决Ajax请求问题，需要前端统一处理。
 				String script = "<script>alert('您的身份已失效，请重新登录!');";
 				script += "window.location.href = '" + serviceUrl + "/login.html?url=' + encodeURIComponent(location.href);</script>";
 				response.setContentType("text/html;charset=utf-8");
@@ -223,8 +226,8 @@ public class PermissionsFilter implements Filter {
 		initServiceUrl();
 		noPermissionsPage = filterConfig.getInitParameter("noPermissionsPage");
 		try {
+			// noPermissionsPage没有配置或找不到该文件
 			if (noPermissionsPage == null || filterConfig.getServletContext().getResource("/" + noPermissionsPage) == null) {
-				err("noPermissionsPage没有配置或找不到该文件。");
 				noPermissionsPage = "/nopermissions.html";
 			}
 		} catch (Exception e) {
@@ -262,7 +265,7 @@ public class PermissionsFilter implements Filter {
 		log("初始化配置：on-off              : " + onOff);
 		log("初始化配置：systemName          : " + systemName);
 		log("初始化配置：serviceUrl          : " + serviceUrl);
-		log("初始化配置：noPermissionsPage   : " + noPermissionsPage);
+		log("初始化配置：noPermissionsPage   : " + serviceUrl + noPermissionsPage);
 		log("初始化配置：cookieSeconds       : " + cookieSeconds);
 		log("初始化配置：ignoreUrls          : " + ignoreUrls);
 		log("初始化配置：ignoreUrlsSet       : " + ignoreUrlsSet);
