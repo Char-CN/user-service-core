@@ -13,6 +13,7 @@ import org.apache.http.impl.client.HttpClients;
 
 public class HttpUtil {
 
+	// 匹配域名 domain 规则: http[s]://(domain)/
 	public static final String HOST_REG = "[http|https]://([.a-zA-Z0-9]*)/*.*";
 
 	public static void main(String[] args) {
