@@ -184,7 +184,6 @@ public class PermissionsFilter implements Filter {
 	/**
 	 * 查询本系统(当前系统,哪个系统调用的,就属于哪个系统)中拥有该url权限的所有用户
 	 * 
-	 * @param systemName
 	 * @param url
 	 * @return
 	 * @throws JsonParseException
